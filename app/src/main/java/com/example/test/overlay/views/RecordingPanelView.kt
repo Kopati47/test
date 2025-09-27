@@ -14,7 +14,8 @@ import com.example.test.overlay.util.dp
 class RecordingPanelView(context: Context) : LinearLayout(context) {
 
     val waveform = WaveformView(context)
-    private val stopBtn = TextView(context)
+    private val confirmBtn = TextView(context) // синяя ✓
+    private val cancelBtn  = TextView(context) // красная Cancel
     private var anim: ViewPropertyAnimator? = null
 
     init {
@@ -23,12 +24,31 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
         setBackgroundResource(R.drawable.bg_record_panel)
         setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
 
-        // Внутри родитель задаёт ширину/высоту самой панели.
-        // Тут: waveform заполняет всё слева, STOP справа фиксированной ширины.
+        // слева – волна, занимает всё доступное место
         addView(waveform, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
 
-        stopBtn.apply {
-            text = "STOP"
+        // синяя кнопка ✓ (Confirm)
+        confirmBtn.apply {
+            text = "✓"
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            setPadding(dp(12f), dp(6f), dp(12f), dp(6f))
+            minWidth = dp(40f)
+            minHeight = dp(28f)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(10f).toFloat()
+                setColor(Color.parseColor("#1976D2")) // синий
+            }
+        }
+        addView(confirmBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp(8f)
+        })
+
+        // красная кнопка Cancel
+        cancelBtn.apply {
+            text = "Cancel"
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor(Color.WHITE)
@@ -41,16 +61,15 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
                 setColor(Color.parseColor("#D32F2F"))
             }
         }
-        val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-        lp.leftMargin = dp(8f)
-        addView(stopBtn, lp)
+        addView(cancelBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = dp(8f)
+        })
 
-        alpha = 0f // fade-in
+        alpha = 0f // для fade-in
     }
 
-    fun setOnStop(action: () -> Unit) {
-        stopBtn.setOnClickListener { action() }
-    }
+    fun setOnConfirm(action: () -> Unit) { confirmBtn.setOnClickListener { action() } }
+    fun setOnCancel(action: () -> Unit)  { cancelBtn.setOnClickListener  { action() } }
 
     fun fadeIn(duration: Long = 200L) {
         anim?.cancel()

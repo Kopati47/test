@@ -156,10 +156,10 @@ class OverlayService : Service() {
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
 
-            setOnStop {
+            // Обе кнопки пока делают одно и то же: стоп + возврат к ручке
+            val revert: () -> Unit = {
                 stopRecording()
                 container.removeAllViews()
-                // пересоздаём ручку
                 controller = EdgeBarController(
                     wm, container, params,
                     EDGE_OFFSET_DP, TOP_MARGIN_DP, BOTTOM_MARGIN_DP,
@@ -171,12 +171,15 @@ class OverlayService : Service() {
                     COLOR_START_HEX, COLOR_TARGET_HEX
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
+
+            setOnCancel { revert() }   // красная Cancel
+            setOnConfirm { revert() }  // синяя ✓ (подтвердить)
         }
 
         // кросс-фейд без мигания
         crossFadeReplaceWithPanel(panel, duration = 220L)
 
-        // старт записи и прокидывание уровней в waveform
+        // запуск записи и подача уровней
         recorder = RecordingEngine { level -> panel.waveform.push(level) }.also { it.start() }
     }
 
