@@ -42,7 +42,7 @@ class OverlayService : Service() {
 
     private val START_FROM_BOTTOM_GAP_DP = 215f
     private val STRETCH_RATIO            = 0.5f
-    private val MAX_STRETCH_DP           = 160f
+    private val MAX_STRETCH_DP           = 260f
     private val H_LOCK_THRESHOLD_DP      = 8f
     private val HEIGHT_GROW_START_DP     = 20f
     private val ENTRY_ANIM_DURATION_MS   = 260L
