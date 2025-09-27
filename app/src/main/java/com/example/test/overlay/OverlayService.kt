@@ -174,7 +174,16 @@ class OverlayService : Service() {
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
 
-            setOnCancel { revert() }
+            setOnCancel {
+                // 1) сообщаем серверу, что запись отменена
+                wsStreamer?.sendCancel()
+
+                // 2) даём кадру долететь и только потом останавливаем стрим
+                handler.postDelayed({
+                    stopStreaming()   // твой метод, который делает recorder?.stop() и wsStreamer?.stop()
+                    revert()          // возврат к «ручке» (как у тебя уже было)
+                }, 120)               // 100–150 мс достаточно
+            }
             setOnConfirm { revert() } // по ✓ просто завершаем стрим; файл уже на сервере
         }
 

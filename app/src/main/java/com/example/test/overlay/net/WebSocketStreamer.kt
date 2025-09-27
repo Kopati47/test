@@ -38,10 +38,13 @@ class WebSocketStreamer(
         socket.send(ByteString.of(*bb.array()))
     }
 
+    fun sendCancel() {
+        ws?.send("CANCEL")
+    }
+
     fun stop(code: Int = 1000, reason: String = "done") {
         started = false
         ws?.close(code, reason)
         ws = null
-        // client.dispatcher.executorService.shutdown() // опционально
     }
 }
