@@ -89,6 +89,7 @@ class EdgeBarController(
             val targetY = screenH - insetBottom - container.context.dp(startFromBottomGapDp) - params.height
             params.y = clamp(targetY, minY, maxY)
         }
+        wm.updateViewLayout(container, params)
 
         container.removeAllViews()
         // сама тонкая линия внутри контейнера

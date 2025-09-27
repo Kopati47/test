@@ -133,21 +133,20 @@ class OverlayService : Service() {
 
     private fun showRecordingPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.removeAllViews()
-        val row = RecordingPanelView(this).apply {
-            // ставим точно внутрь линии (ширина/высота = линии, слева отступ внутри)
+        container.clipChildren = false
+        container.clipToPadding = false
+
+        val panel = RecordingPanelView(this).apply {
+            // Панель появляется строго внутри линии (размер панели = размер линии)
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                lineW, lineH,
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
-            // waveform ширина/высота = линия
-            (getChildAt(0).layoutParams as LinearLayout.LayoutParams).apply {
-                width = lineW; height = lineH
-            }
+
             setOnStop {
                 stopRecording()
-                // полностью перезапускаем «ручку»
                 container.removeAllViews()
+                // пересоздаём ручку
                 controller = EdgeBarController(
                     wm, container, params,
                     EDGE_OFFSET_DP, TOP_MARGIN_DP, BOTTOM_MARGIN_DP,
@@ -160,13 +159,14 @@ class OverlayService : Service() {
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
         }
-        container.addView(row)
+        container.addView(panel)
         wm.updateViewLayout(container, params)
-        row.fadeIn(220L)
+        panel.fadeIn(220L)
 
-        // запуск записи
-        recorder = RecordingEngine { level -> row.waveform.push(level) }.also { it.start() }
+        // аудиозапись + подача уровней в waveform
+        recorder = RecordingEngine { level -> panel.waveform.push(level) }.also { it.start() }
     }
+
 
     private fun stopRecording() {
         recorder?.stop()
@@ -175,14 +175,15 @@ class OverlayService : Service() {
 
     private fun showPermissionPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.removeAllViews()
+        container.clipChildren = false
+        container.clipToPadding = false
+
         val panel = PermissionPanelView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                lineW, lineH,
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
-            // чтобы подсказка не «вылазила» за линию, ограничим ширину текста шириной линии
-            (getChildAt(0).layoutParams as LinearLayout.LayoutParams).apply { width = lineW }
+
             setOnAllow { openAppSettingsAndPoll(padStartPx, lineW, lineH) }
         }
         container.addView(panel)

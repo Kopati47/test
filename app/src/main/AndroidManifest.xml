@@ -20,8 +20,11 @@
         android:theme="@style/Theme.Test">
 
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".ServiceLauncherActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
