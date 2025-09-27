@@ -205,18 +205,34 @@ class EdgeBarController(
             interpolator = DecelerateInterpolator()
             addUpdateListener { a ->
                 val t = a.animatedFraction
+
+                // размеры контейнера
                 params.width  = (startW + (fullW  - startW) * t).toInt()
                 params.height = (startH + (maxH  - startH) * t).toInt()
+
+                // размеры линии
                 val lp = line.layoutParams as FrameLayout.LayoutParams
                 lp.width  = (startLW + (fullLW - startLW) * t).toInt()
                 lp.height = (startLH + (maxLH - startLH) * t).toInt()
                 line.layoutParams = lp
+
+                // ГЛАВНОЕ: цвет по прогрессу ширины линии
+                val progress = ((lp.width - baseLW).toFloat() / (fullLW - baseLW))
+                    .coerceIn(0f, 1f)
+                (line.background.mutate() as? GradientDrawable)
+                    ?.setColor(blendColor(colorStart, colorTarget, progress))
+
+                // из-за роста высоты корректируем границы по Y
                 val (minY, maxY) = computeYBounds(params, params.height)
                 params.y = clamp(params.y, minY, maxY)
+
                 wm.updateViewLayout(container, params)
             }
             addListener(onEnd = {
                 autoCompleting = false
+                // на всякий случай зафиксируем финальный цвет
+                (line.background.mutate() as? GradientDrawable)
+                    ?.setColor(colorTarget)
                 val finalLp = line.layoutParams as FrameLayout.LayoutParams
                 onAutoCompleted(padStartPx, finalLp.width, finalLp.height)
             })
