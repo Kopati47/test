@@ -170,6 +170,32 @@ class EdgeBarController(
                     }
                     true
                 }
+
+                // === ОТКАТ ЕСЛИ НЕ ДОТЯНУЛИ ДО ПОРОГА ===
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (stretching && !autoCompleting) {
+                        val curLineW = (line.layoutParams as FrameLayout.LayoutParams).width
+                        val stretchedPx = curLineW - baseLineWidthPx
+                        if (stretchedPx < autoTriggerPx) {
+                            animateBackToBase(
+                                baseContainerWidthPx, baseTouchHeightPx,
+                                baseLineWidthPx, baseLineHeightPx,
+                                fullLineWidthPx
+                            )
+                        } else {
+                            // на всякий случай, если порог достигли на UP, дотянем
+                            startAutoComplete(
+                                baseContainerWidthPx, fullContainerWidthPx,
+                                baseTouchHeightPx, maxTouchHeightPx,
+                                baseLineWidthPx, fullLineWidthPx,
+                                baseLineHeightPx, maxLineHeightPx,
+                                edgeOffsetPx
+                            )
+                        }
+                    }
+                    stretching = false
+                    true
+                }
                 else -> false
             }
         }
@@ -181,6 +207,50 @@ class EdgeBarController(
             interpolator = DecelerateInterpolator()
             addUpdateListener { container.translationX = it.animatedValue as Float }
             addListener(onEnd = { entryAnimating = false })
+            start()
+        }
+    }
+
+    // анимация возврата в исходную форму
+    private fun animateBackToBase(
+        baseW: Int, baseH: Int,
+        baseLW: Int, baseLH: Int,
+        fullLW: Int
+    ) {
+        autoCompleting = true
+        val startW = params.width
+        val startH = params.height
+        val lp0 = line.layoutParams as FrameLayout.LayoutParams
+        val startLW = lp0.width
+        val startLH = lp0.height
+
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 180L
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { a ->
+                val t = a.animatedFraction
+
+                params.width  = (startW + (baseW - startW) * t).toInt()
+                params.height = (startH + (baseH - startH) * t).toInt()
+
+                val lp = line.layoutParams as FrameLayout.LayoutParams
+                lp.width  = (startLW + (baseLW - startLW) * t).toInt()
+                lp.height = (startLH + (baseLH - startLH) * t).toInt()
+                line.layoutParams = lp
+
+                // цвет к исходному
+                val progress = ((lp.width - baseLW).toFloat() / (fullLW - baseLW)).coerceIn(0f, 1f)
+                (line.background.mutate() as? GradientDrawable)
+                    ?.setColor(blendColor(colorStart, colorTarget, progress))
+
+                val (minY, maxY) = computeYBounds(params, params.height)
+                params.y = clamp(params.y, minY, maxY)
+                wm.updateViewLayout(container, params)
+            }
+            addListener(onEnd = {
+                (line.background.mutate() as? GradientDrawable)?.setColor(colorStart)
+                autoCompleting = false
+            })
             start()
         }
     }
@@ -213,7 +283,6 @@ class EdgeBarController(
                 lp.height = (startLH + (maxLH - startLH) * t).toInt()
                 line.layoutParams = lp
 
-                // анимируем цвет к целевому
                 val progress = ((lp.width - baseLW).toFloat() / (fullLW - baseLW)).coerceIn(0f, 1f)
                 (line.background.mutate() as? GradientDrawable)
                     ?.setColor(blendColor(colorStart, colorTarget, progress))
