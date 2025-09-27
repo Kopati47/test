@@ -1,7 +1,6 @@
 package com.example.test.overlay
 
 import android.animation.ValueAnimator
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.graphics.drawable.GradientDrawable
@@ -48,7 +47,6 @@ class EdgeBarController(
     private var entryAnimating = true
     private var autoCompleting = false
     private var stretching = false
-    private var autoAnim: ValueAnimator? = null
 
     private lateinit var line: View
 
@@ -80,7 +78,7 @@ class EdgeBarController(
                 or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                 or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
 
-        // стартовая позиция по Y (от низа)
+        // стартовый Y от низа
         run {
             val triple = screenHeightAndInsets()
             val screenH = triple.first
@@ -89,10 +87,9 @@ class EdgeBarController(
             val targetY = screenH - insetBottom - container.context.dp(startFromBottomGapDp) - params.height
             params.y = clamp(targetY, minY, maxY)
         }
-        wm.updateViewLayout(container, params)
+        wm.updateViewLayout(container, params) // применяем начальную позицию!
 
         container.removeAllViews()
-        // сама тонкая линия внутри контейнера
         val lp = FrameLayout.LayoutParams(baseLineWidthPx, baseLineHeightPx).apply {
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             marginStart = edgeOffsetPx
@@ -134,8 +131,10 @@ class EdgeBarController(
                     }
 
                     val extra = max(0f, rawDx * stretchRatio)
-                    params.width = clamp(baseContainerWidthPx + extra.toInt(),
-                        baseContainerWidthPx, fullContainerWidthPx)
+                    params.width = clamp(
+                        baseContainerWidthPx + extra.toInt(),
+                        baseContainerWidthPx, fullContainerWidthPx
+                    )
 
                     val tColor = (extra / maxStretchPx).coerceIn(0f, 1f)
                     (line.background.mutate() as? GradientDrawable)
@@ -206,34 +205,27 @@ class EdgeBarController(
             addUpdateListener { a ->
                 val t = a.animatedFraction
 
-                // размеры контейнера
                 params.width  = (startW + (fullW  - startW) * t).toInt()
                 params.height = (startH + (maxH  - startH) * t).toInt()
 
-                // размеры линии
                 val lp = line.layoutParams as FrameLayout.LayoutParams
                 lp.width  = (startLW + (fullLW - startLW) * t).toInt()
                 lp.height = (startLH + (maxLH - startLH) * t).toInt()
                 line.layoutParams = lp
 
-                // ГЛАВНОЕ: цвет по прогрессу ширины линии
-                val progress = ((lp.width - baseLW).toFloat() / (fullLW - baseLW))
-                    .coerceIn(0f, 1f)
+                // анимируем цвет к целевому
+                val progress = ((lp.width - baseLW).toFloat() / (fullLW - baseLW)).coerceIn(0f, 1f)
                 (line.background.mutate() as? GradientDrawable)
                     ?.setColor(blendColor(colorStart, colorTarget, progress))
 
-                // из-за роста высоты корректируем границы по Y
                 val (minY, maxY) = computeYBounds(params, params.height)
                 params.y = clamp(params.y, minY, maxY)
-
                 wm.updateViewLayout(container, params)
             }
             addListener(onEnd = {
-                autoCompleting = false
-                // на всякий случай зафиксируем финальный цвет
-                (line.background.mutate() as? GradientDrawable)
-                    ?.setColor(colorTarget)
+                (line.background.mutate() as? GradientDrawable)?.setColor(colorTarget)
                 val finalLp = line.layoutParams as FrameLayout.LayoutParams
+                autoCompleting = false
                 onAutoCompleted(padStartPx, finalLp.width, finalLp.height)
             })
             start()
@@ -259,7 +251,9 @@ class EdgeBarController(
     private fun screenHeightAndInsets(): Triple<Int, Int, Int> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val m = wm.currentWindowMetrics
-            val ins = m.windowInsets.getInsets(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+            val ins = m.windowInsets.getInsets(
+                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+            )
             Triple(m.bounds.height(), ins.top, ins.bottom)
         } else {
             @Suppress("DEPRECATION")

@@ -1,6 +1,9 @@
 package com.example.test.overlay
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,9 +15,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.test.R
@@ -22,10 +25,9 @@ import com.example.test.overlay.util.dp
 import com.example.test.overlay.views.PermissionPanelView
 import com.example.test.overlay.views.RecordingPanelView
 
-
 class OverlayService : Service() {
 
-    // --- параметры (можешь крутить)
+    // --- настройки
     private val EDGE_OFFSET_DP           = 9f
     private val TOP_MARGIN_DP            = 21f
     private val BOTTOM_MARGIN_DP         = 100f
@@ -90,7 +92,7 @@ class OverlayService : Service() {
             ENTRY_ANIM_DURATION_MS, AUTO_TRIGGER_DP, AUTO_ANIM_DURATION_MS,
             COLOR_START_HEX, COLOR_TARGET_HEX
         ) { padStartPx, lineW, lineH ->
-            // коллбек после полного растяжения — показываем панель внутри линии
+            // после полного растяжения мягко подменяем линию на панель
             showRecordingOrPermissionInsideLine(padStartPx, lineW, lineH)
         }.also { it.attach() }
     }
@@ -120,8 +122,20 @@ class OverlayService : Service() {
         startForeground(1, n)
     }
 
-    // ----- UI внутри линии -----
+    // ---------- кросс-фейд (убирает blink) ----------
+    private fun crossFadeReplaceWithPanel(panel: View, duration: Long = 200L) {
+        val old = if (container.childCount > 0) container.getChildAt(0) else null
+        panel.alpha = 0f
+        container.addView(panel)                 // кладём поверх линии
+        wm.updateViewLayout(container, params)
+        panel.animate()
+            .alpha(1f)
+            .setDuration(duration)
+            .withEndAction { old?.let { runCatching { container.removeView(it) } } }
+            .start()
+    }
 
+    // ---------- панели внутри линии ----------
     private fun showRecordingOrPermissionInsideLine(padStartPx: Int, lineW: Int, lineH: Int) {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED) {
@@ -132,12 +146,11 @@ class OverlayService : Service() {
     }
 
     private fun showRecordingPanel(padStartPx: Int, lineW: Int, lineH: Int) {
-        container.removeAllViews()
         container.clipChildren = false
         container.clipToPadding = false
 
         val panel = RecordingPanelView(this).apply {
-            // Панель появляется строго внутри линии (размер панели = размер линии)
+            // Панель строго ВНУТРИ линии
             layoutParams = FrameLayout.LayoutParams(
                 lineW, lineH,
                 Gravity.START or Gravity.CENTER_VERTICAL
@@ -159,14 +172,13 @@ class OverlayService : Service() {
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
         }
-        container.addView(panel)
-        wm.updateViewLayout(container, params)
-        panel.fadeIn(220L)
 
-        // аудиозапись + подача уровней в waveform
+        // кросс-фейд без мигания
+        crossFadeReplaceWithPanel(panel, duration = 220L)
+
+        // старт записи и прокидывание уровней в waveform
         recorder = RecordingEngine { level -> panel.waveform.push(level) }.also { it.start() }
     }
-
 
     private fun stopRecording() {
         recorder?.stop()
@@ -174,7 +186,6 @@ class OverlayService : Service() {
     }
 
     private fun showPermissionPanel(padStartPx: Int, lineW: Int, lineH: Int) {
-        container.removeAllViews()
         container.clipChildren = false
         container.clipToPadding = false
 
@@ -183,12 +194,10 @@ class OverlayService : Service() {
                 lineW, lineH,
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
-
             setOnAllow { openAppSettingsAndPoll(padStartPx, lineW, lineH) }
         }
-        container.addView(panel)
-        wm.updateViewLayout(container, params)
-        panel.fadeIn(200L)
+
+        crossFadeReplaceWithPanel(panel, duration = 200L)
     }
 
     private fun openAppSettingsAndPoll(padStartPx: Int, lineW: Int, lineH: Int) {
@@ -197,6 +206,7 @@ class OverlayService : Service() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(i)
+
         pollRunnable?.let { handler.removeCallbacks(it) }
         val r = object : Runnable {
             override fun run() {
