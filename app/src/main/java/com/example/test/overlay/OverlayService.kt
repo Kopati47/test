@@ -21,7 +21,6 @@ import android.widget.FrameLayout
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.test.R
-import com.example.test.overlay.util.dp
 import com.example.test.overlay.views.PermissionPanelView
 import com.example.test.overlay.views.RecordingPanelView
 
@@ -92,7 +91,7 @@ class OverlayService : Service() {
             ENTRY_ANIM_DURATION_MS, AUTO_TRIGGER_DP, AUTO_ANIM_DURATION_MS,
             COLOR_START_HEX, COLOR_TARGET_HEX
         ) { padStartPx, lineW, lineH ->
-            // после полного растяжения мягко подменяем линию на панель
+            // после полного растяжения подменяем линию панелью
             showRecordingOrPermissionInsideLine(padStartPx, lineW, lineH)
         }.also { it.attach() }
     }
@@ -148,6 +147,7 @@ class OverlayService : Service() {
     private fun showRecordingPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
+        container.setOnTouchListener(null)   // после раскрытия — никаких жестов перетаскивания
 
         val panel = RecordingPanelView(this).apply {
             // Панель строго ВНУТРИ линии
@@ -156,7 +156,7 @@ class OverlayService : Service() {
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
 
-            // Обе кнопки пока делают одно и то же: стоп + возврат к ручке
+            // два действия: Confirm (✓) и Cancel
             val revert: () -> Unit = {
                 stopRecording()
                 container.removeAllViews()
@@ -171,15 +171,14 @@ class OverlayService : Service() {
                     COLOR_START_HEX, COLOR_TARGET_HEX
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
-
-            setOnCancel { revert() }   // красная Cancel
-            setOnConfirm { revert() }  // синяя ✓ (подтвердить)
+            setOnConfirm { revert() }
+            setOnCancel  { revert() }
         }
 
         // кросс-фейд без мигания
         crossFadeReplaceWithPanel(panel, duration = 220L)
 
-        // запуск записи и подача уровней
+        // запуск записи и подача уровней в waveform
         recorder = RecordingEngine { level -> panel.waveform.push(level) }.also { it.start() }
     }
 
@@ -191,6 +190,7 @@ class OverlayService : Service() {
     private fun showPermissionPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
+        container.setOnTouchListener(null)   // тоже снимаем перетаскивание
 
         val panel = PermissionPanelView(this).apply {
             layoutParams = FrameLayout.LayoutParams(

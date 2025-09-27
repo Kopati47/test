@@ -13,9 +13,13 @@ import com.example.test.overlay.util.dp
 
 class RecordingPanelView(context: Context) : LinearLayout(context) {
 
+    // слева бегущая волна
     val waveform = WaveformView(context)
-    private val confirmBtn = TextView(context) // синяя ✓
-    private val cancelBtn  = TextView(context) // красная Cancel
+
+    // справа кнопки: синяя ✓ и красная Cancel
+    private val confirmBtn = TextView(context)
+    private val cancelBtn  = TextView(context)
+
     private var anim: ViewPropertyAnimator? = null
 
     init {
@@ -24,10 +28,19 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
         setBackgroundResource(R.drawable.bg_record_panel)
         setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
 
-        // слева – волна, занимает всё доступное место
-        addView(waveform, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+        // панель сама по себе кликабельна (чтобы события не «уходили вниз»)
+        isClickable = true
+        isLongClickable = false
 
-        // синяя кнопка ✓ (Confirm)
+        // --- WAVEFORM ---
+        // занимает всё оставшееся пространство слева,
+        // и полностью "глотает" любые касания, чтобы не было реакций на рабочем столе
+        addView(waveform, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+        waveform.isClickable = true
+        waveform.isLongClickable = false
+        waveform.setOnTouchListener { _, _ -> true } // глотаем все тапы/лонгтапы
+
+        // --- CONFIRM (синяя с галочкой) ---
         confirmBtn.apply {
             text = "✓"
             typeface = Typeface.DEFAULT_BOLD
@@ -39,14 +52,17 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
             minHeight = dp(28f)
             background = GradientDrawable().apply {
                 cornerRadius = dp(10f).toFloat()
-                setColor(Color.parseColor("#1976D2")) // синий
+                setColor(Color.parseColor("#1976D2"))
             }
         }
-        addView(confirmBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-            leftMargin = dp(8f)
-        })
+        addView(
+            confirmBtn,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                leftMargin = dp(8f)
+            }
+        )
 
-        // красная кнопка Cancel
+        // --- CANCEL (красная) ---
         cancelBtn.apply {
             text = "Cancel"
             typeface = Typeface.DEFAULT_BOLD
@@ -61,9 +77,12 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
                 setColor(Color.parseColor("#D32F2F"))
             }
         }
-        addView(cancelBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-            leftMargin = dp(8f)
-        })
+        addView(
+            cancelBtn,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                leftMargin = dp(8f)
+            }
+        )
 
         alpha = 0f // для fade-in
     }
