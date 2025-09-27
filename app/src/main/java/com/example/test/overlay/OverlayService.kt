@@ -21,37 +21,39 @@ import android.widget.FrameLayout
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.test.R
+import com.example.test.overlay.net.WebSocketStreamer
+import com.example.test.overlay.util.dp
 import com.example.test.overlay.views.PermissionPanelView
 import com.example.test.overlay.views.RecordingPanelView
+import com.example.test.overlay.RecordingEngine
 
 class OverlayService : Service() {
 
-    // --- настройки
-    private val EDGE_OFFSET_DP           = 9f
-    private val TOP_MARGIN_DP            = 21f
-    private val BOTTOM_MARGIN_DP         = 100f
-
-    private val TOUCH_WIDTH_DP           = 28f
-    private val TOUCH_HEIGHT_DP          = 60f
-    private val TOUCH_MAX_HEIGHT_DP      = 120f
-
-    private val LINE_WIDTH_DP            = 4f
-    private val LINE_HEIGHT_DP           = 45f
-    private val LINE_MAX_HEIGHT_DP       = 100f
-
+    // ---- настройки линии (как у тебя)
+    private val EDGE_OFFSET_DP = 9f
+    private val TOP_MARGIN_DP = 21f
+    private val BOTTOM_MARGIN_DP = 100f
+    private val TOUCH_WIDTH_DP = 28f
+    private val TOUCH_HEIGHT_DP = 60f
+    private val TOUCH_MAX_HEIGHT_DP = 120f
+    private val LINE_WIDTH_DP = 4f
+    private val LINE_HEIGHT_DP = 45f
+    private val LINE_MAX_HEIGHT_DP = 100f
     private val START_FROM_BOTTOM_GAP_DP = 215f
-    private val STRETCH_RATIO            = 0.5f
-    private val MAX_STRETCH_DP           = 260f
-    private val H_LOCK_THRESHOLD_DP      = 8f
-    private val HEIGHT_GROW_START_DP     = 20f
-    private val ENTRY_ANIM_DURATION_MS   = 260L
-    private val AUTO_TRIGGER_DP          = 90f
-    private val AUTO_ANIM_DURATION_MS    = 180L
+    private val STRETCH_RATIO = 0.5f
+    private val MAX_STRETCH_DP = 260f
+    private val H_LOCK_THRESHOLD_DP = 8f
+    private val HEIGHT_GROW_START_DP = 20f
+    private val ENTRY_ANIM_DURATION_MS = 260L
+    private val AUTO_TRIGGER_DP = 90f
+    private val AUTO_ANIM_DURATION_MS = 180L
+    private val COLOR_START_HEX = 0x55FFFFFF
+    private val COLOR_TARGET_HEX = 0xFF404040.toInt()
 
-    private val COLOR_START_HEX          = 0x55FFFFFF
-    private val COLOR_TARGET_HEX         = 0xFF404040.toInt()
+    // ---- адрес WS сервера (ПОПРАВЬ на свой IP/порт)
+    // пример: "ws://192.168.1.50:8000/stream?sr=44100&ch=1"
+    private val WS_URL = "wss://ubuntu.tail336b97.ts.net/stream?sr=44100&ch=1&token=changeme123"
 
-    // ---
     private lateinit var wm: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var container: FrameLayout
@@ -59,7 +61,10 @@ class OverlayService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var pollRunnable: Runnable? = null
+
+    // запись + поток
     private var recorder: RecordingEngine? = null
+    private var wsStreamer: WebSocketStreamer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -91,13 +96,12 @@ class OverlayService : Service() {
             ENTRY_ANIM_DURATION_MS, AUTO_TRIGGER_DP, AUTO_ANIM_DURATION_MS,
             COLOR_START_HEX, COLOR_TARGET_HEX
         ) { padStartPx, lineW, lineH ->
-            // после полного растяжения подменяем линию панелью
             showRecordingOrPermissionInsideLine(padStartPx, lineW, lineH)
         }.also { it.attach() }
     }
 
     override fun onDestroy() {
-        stopRecording()
+        stopStreaming()
         pollRunnable?.let { handler.removeCallbacks(it) }
         controller?.detach()
         super.onDestroy()
@@ -121,11 +125,11 @@ class OverlayService : Service() {
         startForeground(1, n)
     }
 
-    // ---------- кросс-фейд (убирает blink) ----------
+    // ---------- кросс-фейд (без blink) ----------
     private fun crossFadeReplaceWithPanel(panel: View, duration: Long = 200L) {
         val old = if (container.childCount > 0) container.getChildAt(0) else null
         panel.alpha = 0f
-        container.addView(panel)                 // кладём поверх линии
+        container.addView(panel)
         wm.updateViewLayout(container, params)
         panel.animate()
             .alpha(1f)
@@ -134,7 +138,7 @@ class OverlayService : Service() {
             .start()
     }
 
-    // ---------- панели внутри линии ----------
+    // ---------- панели ----------
     private fun showRecordingOrPermissionInsideLine(padStartPx: Int, lineW: Int, lineH: Int) {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED) {
@@ -147,18 +151,16 @@ class OverlayService : Service() {
     private fun showRecordingPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
-        container.setOnTouchListener(null)   // после раскрытия — никаких жестов перетаскивания
+        container.setOnTouchListener(null)
 
         val panel = RecordingPanelView(this).apply {
-            // Панель строго ВНУТРИ линии
             layoutParams = FrameLayout.LayoutParams(
                 lineW, lineH,
                 Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
 
-            // два действия: Confirm (✓) и Cancel
             val revert: () -> Unit = {
-                stopRecording()
+                stopStreaming()
                 container.removeAllViews()
                 controller = EdgeBarController(
                     wm, container, params,
@@ -171,26 +173,32 @@ class OverlayService : Service() {
                     COLOR_START_HEX, COLOR_TARGET_HEX
                 ) { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) }.also { it.attach() }
             }
-            setOnConfirm { revert() }
-            setOnCancel  { revert() }
+
+            setOnCancel { revert() }
+            setOnConfirm { revert() } // по ✓ просто завершаем стрим; файл уже на сервере
         }
 
-        // кросс-фейд без мигания
         crossFadeReplaceWithPanel(panel, duration = 220L)
 
-        // запуск записи и подача уровней в waveform
-        recorder = RecordingEngine { level -> panel.waveform.push(level) }.also { it.start() }
+        // === старт стриминга ===
+        wsStreamer = WebSocketStreamer(WS_URL).also { it.start() }
+        recorder = RecordingEngine(
+            onLevel = { level -> panel.waveform.push(level) },
+            onChunk = { chunk, n -> wsStreamer?.sendChunk(chunk, n) }
+        ).also { it.start() }
     }
 
-    private fun stopRecording() {
+    private fun stopStreaming() {
         recorder?.stop()
         recorder = null
+        wsStreamer?.stop()
+        wsStreamer = null
     }
 
     private fun showPermissionPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
-        container.setOnTouchListener(null)   // тоже снимаем перетаскивание
+        container.setOnTouchListener(null)
 
         val panel = PermissionPanelView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -199,7 +207,6 @@ class OverlayService : Service() {
             ).apply { marginStart = padStartPx }
             setOnAllow { openAppSettingsAndPoll(padStartPx, lineW, lineH) }
         }
-
         crossFadeReplaceWithPanel(panel, duration = 200L)
     }
 

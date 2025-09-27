@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- overlay + уведомления + автозапуск (если нужно) -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <!-- overlay + уведомления + сеть + foreground service -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <!-- микрофон -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- для SDK 34+ (target/compile 36) требуется тип foreground-сервиса: -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <!-- Микрофон для записи -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Для target/compile 34+ нужен тип foreground-сервиса -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application
         android:allowBackup="true"
@@ -17,29 +18,24 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Test">
+        android:theme="@style/Theme.Test"
+        android:usesCleartextTraffic="true">
+        <!-- ^ нужно для ws:// и http://. Если перейдёшь на wss/https — можно убрать -->
 
+        <!-- Невидимая лаунчер-активити, сразу стартует сервис и закрывается -->
         <activity
-            android:name=".ServiceLauncherActivity"
+            android:name=".LauncherActivity"
             android:exported="true"
             android:theme="@android:style/Theme.NoDisplay"
             android:excludeFromRecents="true"
             android:finishOnTaskLaunch="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Активити для запроса RECORD_AUDIO -->
-        <activity
-            android:name=".permissions.RecordPermissionActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:taskAffinity=""
-            android:excludeFromRecents="true" />
-
-        <!-- сервис оверлея -->
+        <!-- Foreground overlay-сервис -->
         <service
             android:name=".overlay.OverlayService"
             android:exported="false"
