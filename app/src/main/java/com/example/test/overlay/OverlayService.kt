@@ -52,7 +52,7 @@ class OverlayService : Service() {
 
     // ---- адрес WS сервера (ПОПРАВЬ на свой IP/порт)
     // пример: "ws://192.168.1.50:8000/stream?sr=44100&ch=1"
-    private val WS_URL = "wss://ubuntu.tail336b97.ts.net/stream?sr=44100&ch=1&token=changeme123"
+    private val WS_URL = "wss://mysecretar.duckdns.org/stream?sr=44100&ch=1&token=ADAeDttSGUs7NJKd8e6pH19bXr8NlQS06vh1CcnuweaJJIg6TV"
 
     private lateinit var wm: WindowManager
     private lateinit var params: WindowManager.LayoutParams
