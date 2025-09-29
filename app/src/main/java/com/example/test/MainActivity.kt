@@ -1,63 +1,30 @@
 package com.example.test
 
-import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.test.overlay.OverlayService
-import androidx.core.net.toUri
+import com.example.test.overlay.OverlayAccessibilityService
 
 class MainActivity : ComponentActivity() {
-
-    private val askNotifPerm = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* ignore */ }
-
-    private val askOverlayPerm = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { /* вернёмся и проверим в UI */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             MaterialTheme {
-                val canOverlay = remember { mutableStateOf(Settings.canDrawOverlays(this)) }
+                var enabled by remember { mutableStateOf(isServiceEnabled()) }
 
-                fun startOverlay() {
-                    if (!Settings.canDrawOverlays(this)) {
-                        val i = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            "package:$packageName".toUri()
-                        )
-                        askOverlayPerm.launch(i)
-                        return
-                    }
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        askNotifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    val intent = Intent(this, OverlayService::class.java)
-                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
-                    canOverlay.value = true
-                }
-
-                fun stopOverlay() {
-                    stopService(Intent(this, OverlayService::class.java))
-                }
-
-                LaunchedEffect(Unit) {
-                    // автозапуск если уже выдано
-                    if (Settings.canDrawOverlays(this@MainActivity)) startOverlay()
+                fun openAccessibilitySettings() {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
 
                 Surface(Modifier.fillMaxSize()) {
@@ -68,23 +35,33 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Button(onClick = { startOverlay() }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Запустить Edge Line")
+                        Button(
+                            onClick = { openAccessibilitySettings() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (enabled) "Открыть настройки Спецвозможностей"
+                            else "Включить сервис в Спецвозможностях")
                         }
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { stopOverlay() }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Остановить")
+                        Button(
+                            onClick = { enabled = isServiceEnabled() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Проверить статус")
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            if (Settings.canDrawOverlays(this@MainActivity))
-                                "Статус: разрешение на оверлей есть"
-                            else
-                                "Статус: нет разрешения на оверлей"
-                        )
+                        Text(if (enabled) "Статус: сервис включён" else "Статус: сервис выключен")
                     }
                 }
             }
         }
+    }
+
+    private fun isServiceEnabled(): Boolean {
+        val flat = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val cn = ComponentName(this, OverlayAccessibilityService::class.java)
+        return flat.split(':').any { it.equals(cn.flattenToString(), ignoreCase = true) }
     }
 }

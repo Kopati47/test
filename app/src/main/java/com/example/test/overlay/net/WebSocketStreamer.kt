@@ -10,9 +10,9 @@ import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
 
 class WebSocketStreamer(
-    private val url: String,            // полный ws://…/stream?sr=44100&ch=1
+    private val url: String,
     connectTimeoutSec: Long = 5,
-    readTimeoutSec: Long = 0            // 0 = без таймаута
+    readTimeoutSec: Long = 0
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(connectTimeoutSec, TimeUnit.SECONDS)
@@ -32,7 +32,6 @@ class WebSocketStreamer(
     fun sendChunk(samples: ShortArray, count: Int) {
         val socket = ws ?: return
         if (!started) return
-        // S16LE → bytes
         val bb = ByteBuffer.allocate(count * 2).order(ByteOrder.LITTLE_ENDIAN)
         for (i in 0 until count) bb.putShort(samples[i])
         socket.send(ByteString.of(*bb.array()))

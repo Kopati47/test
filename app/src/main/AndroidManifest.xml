@@ -1,44 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.test">
 
-    <!-- overlay + уведомления + сеть + foreground service -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- Микрофон для записи -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Для target/compile 34+ нужен тип foreground-сервиса -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application
         android:allowBackup="true"
-        android:label="@string/app_name"
+        android:label="Test"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Test"
-        android:usesCleartextTraffic="true">
-        <!-- ^ нужно для ws:// и http://. Если перейдёшь на wss/https — можно убрать -->
+        android:theme="@style/Theme.Test">
 
-        <!-- Невидимая лаунчер-активити, сразу стартует сервис и закрывается -->
         <activity
-            android:name=".LauncherActivity"
-            android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay"
-            android:excludeFromRecents="true"
-            android:finishOnTaskLaunch="true">
+            android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Foreground overlay-сервис -->
         <service
-            android:name=".overlay.OverlayService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:name=".overlay.OverlayAccessibilityService"
+            android:exported="true"
+            android:label="Edge Line"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
     </application>
 </manifest>

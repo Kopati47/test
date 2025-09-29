@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.util.TypedValue
 import android.view.View
 
-// --- Extensions на Context ---
 fun Context.dp(v: Float): Int =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
 
@@ -21,7 +20,5 @@ fun blendColor(c1: Int, c2: Int, tRaw: Float): Int {
     return Color.argb(a, r, g, b)
 }
 
-// --- УДОБНЫЕ хелперы на View ---
-// Теперь внутри View/LinearLayout можно писать просто dp(…)
 fun View.dp(v: Float): Int = context.dp(v)
 fun View.dpF(v: Float): Float = context.dpF(v)
