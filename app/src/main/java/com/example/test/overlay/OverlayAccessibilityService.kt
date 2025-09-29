@@ -1,6 +1,7 @@
 package com.example.test.overlay
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
@@ -11,16 +12,14 @@ import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import com.example.test.overlay.net.WebSocketStreamer
 import com.example.test.overlay.views.PermissionPanelView
 import com.example.test.overlay.views.RecordingPanelView
 
+@SuppressLint("AccessibilityPolicy")
 class OverlayAccessibilityService : AccessibilityService() {
 
-    // ---- настройки линии (твоё)
     private val EDGE_OFFSET_DP = 9f
     private val TOP_MARGIN_DP = 21f
     private val BOTTOM_MARGIN_DP = 100f
@@ -56,9 +55,8 @@ class OverlayAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var pollRunnable: Runnable? = null
 
-    // AccessibilityService требует этот метод
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) { /* не используется */ }
-    override fun onInterrupt() { /* не используется */ }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onInterrupt() {}
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -67,7 +65,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            // ключевое отличие: overlay спецвозможностей
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -88,7 +85,7 @@ class OverlayAccessibilityService : AccessibilityService() {
             ENTRY_ANIM_DURATION_MS, AUTO_TRIGGER_DP, AUTO_ANIM_DURATION_MS,
             COLOR_START_HEX, COLOR_TARGET_HEX,
             onAutoCompleted = { p, w, h -> showRecordingOrPermissionInsideLine(p, w, h) },
-            rightSide = RIGHT_SIDE   // ← ВАЖНО
+            rightSide = RIGHT_SIDE
         ).also { it.attach() }
 
     }
@@ -101,7 +98,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    // ---------- панели ----------
     private fun showRecordingOrPermissionInsideLine(padStartPx: Int, lineW: Int, lineH: Int) {
         val granted = ContextCompat.checkSelfPermission(
             this, android.Manifest.permission.RECORD_AUDIO
@@ -111,6 +107,7 @@ class OverlayAccessibilityService : AccessibilityService() {
         else showPermissionPanel(padStartPx, lineW, lineH)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun showRecordingPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
@@ -168,6 +165,7 @@ class OverlayAccessibilityService : AccessibilityService() {
         wsStreamer = null
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun showPermissionPanel(padStartPx: Int, lineW: Int, lineH: Int) {
         container.clipChildren = false
         container.clipToPadding = false
@@ -177,16 +175,18 @@ class OverlayAccessibilityService : AccessibilityService() {
             layoutParams = FrameLayout.LayoutParams(
                 lineW, lineH, Gravity.START or Gravity.CENTER_VERTICAL
             ).apply { marginStart = padStartPx }
-            setOnAllow { openAppSettingsAndPoll(padStartPx, lineW, lineH) }
+            setOnAllow { requestMicPermissionAndPoll(padStartPx, lineW, lineH) }
         }
         crossFadeReplaceWithPanel(panel, 200L)
     }
 
-    private fun openAppSettingsAndPoll(padStartPx: Int, lineW: Int, lineH: Int) {
-        val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.fromParts("package", packageName, null)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+    private fun requestMicPermissionAndPoll(padStartPx: Int, lineW: Int, lineH: Int) {
+        val i = Intent(this, com.example.test.permissions.RecordPermissionActivity::class.java)
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                        or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            )
         startActivity(i)
 
         pollRunnable?.let { handler.removeCallbacks(it) }
@@ -195,13 +195,17 @@ class OverlayAccessibilityService : AccessibilityService() {
                 val granted = ContextCompat.checkSelfPermission(
                     this@OverlayAccessibilityService, android.Manifest.permission.RECORD_AUDIO
                 ) == PackageManager.PERMISSION_GRANTED
-                if (granted) showRecordingPanel(padStartPx, lineW, lineH)
-                else handler.postDelayed(this, 600)
+                if (granted) {
+                    showRecordingPanel(padStartPx, lineW, lineH)
+                } else {
+                    handler.postDelayed(this, 400)
+                }
             }
         }
         pollRunnable = r
-        handler.postDelayed(r, 800)
+        handler.postDelayed(r, 500)
     }
+
 
     private fun crossFadeReplaceWithPanel(panel: View, duration: Long) {
         val old = if (container.childCount > 0) container.getChildAt(0) else null

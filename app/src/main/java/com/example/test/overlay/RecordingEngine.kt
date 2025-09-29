@@ -10,15 +10,6 @@ import android.content.pm.PackageManager
 import kotlin.math.abs
 import kotlin.math.max
 
-/**
- * Streaming-аудиозапись (PCM 16-bit, mono, 44.1kHz).
- * Безопасно обрабатывает отсутствие разрешения и SecurityException.
- *
- * @param onLevel  визуальный уровень (0..1)
- * @param onChunk  поток PCM-данных (samples, count)
- * @param onError  ошибка старта/чтения (напр. нет разрешения)
- * @param appContext (опц.) если передать — сделаем явную проверку разрешения
- */
 class RecordingEngine(
     private val onLevel: (Float) -> Unit,
     private val onChunk: (ShortArray, Int) -> Unit,
@@ -32,7 +23,6 @@ class RecordingEngine(
     fun start() {
         if (recording) return
 
-        // (1) Явная проверка разрешения, если есть Context
         if (appContext != null) {
             val granted = ContextCompat.checkSelfPermission(
                 appContext, Manifest.permission.RECORD_AUDIO
@@ -49,7 +39,6 @@ class RecordingEngine(
         )
         val bufSize = max(minBuf, 4096)
 
-        // (2) Создание AudioRecord с защитой
         val rec = try {
             AudioRecord(
                 MediaRecorder.AudioSource.MIC, sr,
@@ -62,7 +51,6 @@ class RecordingEngine(
             return
         }
 
-        // (3) Старт с защитой
         try {
             rec.startRecording()
         } catch (t: Throwable) {

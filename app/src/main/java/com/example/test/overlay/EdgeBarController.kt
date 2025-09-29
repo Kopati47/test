@@ -1,6 +1,7 @@
 package com.example.test.overlay
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.graphics.drawable.GradientDrawable
@@ -21,7 +22,6 @@ class EdgeBarController(
     private val wm: WindowManager,
     private val container: FrameLayout,
     private val params: WindowManager.LayoutParams,
-    // настройки
     private val edgeOffsetDp: Float,
     private val topMarginDp: Float,
     private val bottomMarginDp: Float,
@@ -42,7 +42,6 @@ class EdgeBarController(
     private val colorStart: Int,
     private val colorTarget: Int,
     private val onAutoCompleted: (padStartPx: Int, lineW: Int, lineH: Int) -> Unit,
-    // НОВОЕ: сторона (false = слева, true = справа)
     private val rightSide: Boolean
 ) {
 
@@ -52,6 +51,7 @@ class EdgeBarController(
 
     private lateinit var line: View
 
+    @SuppressLint("ClickableViewAccessibility")
     fun attach() {
         val edgeOffsetPx      = container.context.dp(edgeOffsetDp)
         val touchWidthPx      = container.context.dp(touchWidthDp)
@@ -80,16 +80,14 @@ class EdgeBarController(
                 or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                 or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
 
-        // Приклеиваемся к правой/левой кромке; START/END у детей будет уважать layoutDirection
         container.layoutDirection = if (rightSide)
             View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
 
-        // стартовый Y от низа
         run {
             val triple = screenHeightAndInsets()
             val screenH = triple.first
             val insetBottom = triple.third
-            val (minY, maxY) = computeYBounds(params, baseTouchHeightPx)
+            val (minY, maxY) = computeYBounds(baseTouchHeightPx)
             val targetY = screenH - insetBottom - container.context.dp(startFromBottomGapDp) - params.height
             params.y = clamp(targetY, minY, maxY)
         }
@@ -97,7 +95,7 @@ class EdgeBarController(
 
         container.removeAllViews()
         val lp = FrameLayout.LayoutParams(baseLineWidthPx, baseLineHeightPx).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL // сработает и справа благодаря RTL
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
             marginStart = edgeOffsetPx
         }
         line = View(container.context).apply {
@@ -107,11 +105,10 @@ class EdgeBarController(
         }
         container.addView(line)
 
-        // жесты
         var startY = 0
         var touchStartY = 0f
         var touchStartX = 0f
-        val dir = if (rightSide) -1f else 1f // наружу: вправо слева, и влево справа
+        val dir = if (rightSide) -1f else 1f
 
         container.setOnTouchListener { _, e ->
             if (entryAnimating || autoCompleting) return@setOnTouchListener true
@@ -125,7 +122,6 @@ class EdgeBarController(
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    // Проекция «наружу»: всегда положительная, если тянем к центру экрана от кромки
                     val rawDxOut = (e.rawX - touchStartX) * dir
                     val dy = (e.rawY - touchStartY).toInt()
 
@@ -133,7 +129,7 @@ class EdgeBarController(
                         stretching = true
 
                     if (!stretching) {
-                        val (minY, maxY) = computeYBounds(params, params.height)
+                        val (minY, maxY) = computeYBounds(params.height)
                         val newY = startY + dy
                         params.y = clamp(newY, minY, maxY)
                     }
@@ -156,7 +152,7 @@ class EdgeBarController(
                             heightT * (maxTouchHeightPx - baseTouchHeightPx)).toInt()
                     if (newTouchH != params.height) {
                         params.height = newTouchH
-                        val (minY, maxY) = computeYBounds(params, newTouchH)
+                        val (minY, maxY) = computeYBounds(newTouchH)
                         params.y = clamp(params.y, minY, maxY)
                     }
 
@@ -170,10 +166,10 @@ class EdgeBarController(
 
                     if (extra >= autoTriggerPx && !autoCompleting) {
                         startAutoComplete(
-                            baseContainerWidthPx, fullContainerWidthPx,
-                            baseTouchHeightPx, maxTouchHeightPx,
+                            fullContainerWidthPx,
+                            maxTouchHeightPx,
                             baseLineWidthPx, fullLineWidthPx,
-                            baseLineHeightPx, maxLineHeightPx,
+                            maxLineHeightPx,
                             container.context.dp(edgeOffsetDp)
                         )
                     }
@@ -192,10 +188,10 @@ class EdgeBarController(
                             )
                         } else {
                             startAutoComplete(
-                                baseContainerWidthPx, fullContainerWidthPx,
-                                baseTouchHeightPx, maxTouchHeightPx,
+                                fullContainerWidthPx,
+                                maxTouchHeightPx,
                                 baseLineWidthPx, fullLineWidthPx,
-                                baseLineHeightPx, maxLineHeightPx,
+                                maxLineHeightPx,
                                 container.context.dp(edgeOffsetDp)
                             )
                         }
@@ -207,7 +203,6 @@ class EdgeBarController(
             }
         }
 
-        // анимация «въезда» с нужной стороны
         val off = (edgeOffsetPx + baseLineWidthPx).toFloat()
         container.translationX = if (rightSide) off else -off
         ValueAnimator.ofFloat(container.translationX, 0f).apply {
@@ -249,7 +244,7 @@ class EdgeBarController(
                 (line.background.mutate() as? GradientDrawable)
                     ?.setColor(blendColor(colorStart, colorTarget, progress))
 
-                val (minY, maxY) = computeYBounds(params, params.height)
+                val (minY, maxY) = computeYBounds(params.height)
                 params.y = clamp(params.y, minY, maxY)
                 wm.updateViewLayout(container, params)
             }
@@ -262,10 +257,10 @@ class EdgeBarController(
     }
 
     private fun startAutoComplete(
-        baseW: Int, fullW: Int,
-        baseH: Int, maxH: Int,
+        fullW: Int,
+        maxH: Int,
         baseLW: Int, fullLW: Int,
-        baseLH: Int, maxLH: Int,
+        maxLH: Int,
         padStartPx: Int
     ) {
         autoCompleting = true
@@ -293,7 +288,7 @@ class EdgeBarController(
                 (line.background.mutate() as? GradientDrawable)
                     ?.setColor(blendColor(colorStart, colorTarget, progress))
 
-                val (minY, maxY) = computeYBounds(params, params.height)
+                val (minY, maxY) = computeYBounds(params.height)
                 params.y = clamp(params.y, minY, maxY)
                 wm.updateViewLayout(container, params)
             }
@@ -313,7 +308,7 @@ class EdgeBarController(
 
     private fun clamp(v: Int, lo: Int, hi: Int) = max(lo, min(hi, v))
 
-    private fun computeYBounds(p: WindowManager.LayoutParams, heightNow: Int): Pair<Int, Int> {
+    private fun computeYBounds(heightNow: Int): Pair<Int, Int> {
         val triple = screenHeightAndInsets()
         val screenH = triple.first
         val insetTop = triple.second

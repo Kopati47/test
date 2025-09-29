@@ -21,7 +21,7 @@ class WaveformView @JvmOverloads constructor(
     }
 
     private var maxBars = 0
-    private val values = ArrayDeque<Float>() // 0..1
+    private val values = ArrayDeque<Float>()
 
     fun push(level: Float) {
         if (maxBars <= 0) return

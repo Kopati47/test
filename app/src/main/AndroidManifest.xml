@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.example.test">
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -22,11 +23,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".permissions.RecordPermissionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Test.Transparent"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity="com.example.test.permission" />
+
         <service
             android:name=".overlay.OverlayAccessibilityService"
             android:exported="true"
             android:label="Edge Line"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            tools:ignore="AccessibilityPolicy">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>

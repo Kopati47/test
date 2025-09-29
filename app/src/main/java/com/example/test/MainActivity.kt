@@ -39,18 +39,18 @@ class MainActivity : ComponentActivity() {
                             onClick = { openAccessibilitySettings() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (enabled) "Открыть настройки Спецвозможностей"
-                            else "Включить сервис в Спецвозможностях")
+                            Text(if (enabled) "Open Accessibility settings"
+                            else "Enable the service in Special Features")
                         }
                         Spacer(Modifier.height(12.dp))
                         Button(
                             onClick = { enabled = isServiceEnabled() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Проверить статус")
+                            Text("Check status")
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text(if (enabled) "Статус: сервис включён" else "Статус: сервис выключен")
+                        Text(if (enabled) "Status: service enabled" else "Status: service is off")
                     }
                 }
             }

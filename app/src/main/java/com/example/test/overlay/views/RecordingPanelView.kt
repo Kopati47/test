@@ -1,26 +1,22 @@
 package com.example.test.overlay.views
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.ViewPropertyAnimator
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.example.test.R
 import com.example.test.overlay.util.dp
+import androidx.core.graphics.toColorInt
 
+@SuppressLint("SetTextI18n", "ClickableViewAccessibility")
 class RecordingPanelView(context: Context) : LinearLayout(context) {
-
-    // слева бегущая волна
     val waveform = WaveformView(context)
-
-    // справа кнопки: синяя ✓ и красная Cancel
     private val confirmBtn = TextView(context)
     private val cancelBtn  = TextView(context)
-
-    private var anim: ViewPropertyAnimator? = null
 
     init {
         orientation = HORIZONTAL
@@ -28,19 +24,14 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
         setBackgroundResource(R.drawable.bg_record_panel)
         setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
 
-        // панель сама по себе кликабельна (чтобы события не «уходили вниз»)
         isClickable = true
         isLongClickable = false
 
-        // --- WAVEFORM ---
-        // занимает всё оставшееся пространство слева,
-        // и полностью "глотает" любые касания, чтобы не было реакций на рабочем столе
         addView(waveform, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
         waveform.isClickable = true
         waveform.isLongClickable = false
-        waveform.setOnTouchListener { _, _ -> true } // глотаем все тапы/лонгтапы
+        waveform.setOnTouchListener { _, _ -> true }
 
-        // --- CONFIRM (синяя с галочкой) ---
         confirmBtn.apply {
             text = "✓"
             typeface = Typeface.DEFAULT_BOLD
@@ -52,7 +43,7 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
             minHeight = dp(28f)
             background = GradientDrawable().apply {
                 cornerRadius = dp(10f).toFloat()
-                setColor(Color.parseColor("#1976D2"))
+                setColor("#1976D2".toColorInt())
             }
         }
         addView(
@@ -74,7 +65,7 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
             minHeight = dp(28f)
             background = GradientDrawable().apply {
                 cornerRadius = dp(10f).toFloat()
-                setColor(Color.parseColor("#D32F2F"))
+                setColor("#D32F2F".toColorInt())
             }
         }
         addView(
@@ -84,15 +75,9 @@ class RecordingPanelView(context: Context) : LinearLayout(context) {
             }
         )
 
-        alpha = 0f // для fade-in
+        alpha = 0f
     }
 
     fun setOnConfirm(action: () -> Unit) { confirmBtn.setOnClickListener { action() } }
     fun setOnCancel(action: () -> Unit)  { cancelBtn.setOnClickListener  { action() } }
-
-    fun fadeIn(duration: Long = 200L) {
-        anim?.cancel()
-        anim = animate().alpha(1f).setDuration(duration)
-        anim?.start()
-    }
 }

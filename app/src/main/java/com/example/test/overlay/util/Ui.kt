@@ -21,4 +21,3 @@ fun blendColor(c1: Int, c2: Int, tRaw: Float): Int {
 }
 
 fun View.dp(v: Float): Int = context.dp(v)
-fun View.dpF(v: Float): Float = context.dpF(v)

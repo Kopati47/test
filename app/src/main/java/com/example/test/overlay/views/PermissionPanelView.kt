@@ -1,21 +1,22 @@
 package com.example.test.overlay.views
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
-import android.view.ViewPropertyAnimator
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.example.test.R
 import com.example.test.overlay.util.dp
+import androidx.core.graphics.toColorInt
 
+@SuppressLint("SetTextI18n")
 class PermissionPanelView(context: Context) : LinearLayout(context) {
 
     private val allowBtn = TextView(context)
-    private var anim: ViewPropertyAnimator? = null
 
     init {
         orientation = HORIZONTAL
@@ -24,7 +25,7 @@ class PermissionPanelView(context: Context) : LinearLayout(context) {
         setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
 
         val tip = TextView(context).apply {
-            text = "Нужно разрешение на микрофон"
+            text = "Microphone permission required"
             setTextColor(Color.WHITE)
             textSize = 13f
             maxLines = 1
@@ -33,7 +34,7 @@ class PermissionPanelView(context: Context) : LinearLayout(context) {
         addView(tip, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
         allowBtn.apply {
-            text = "Разрешить"
+            text = "Allow"
             typeface = Typeface.DEFAULT_BOLD
             includeFontPadding = false
             setTextColor(Color.WHITE)
@@ -43,7 +44,7 @@ class PermissionPanelView(context: Context) : LinearLayout(context) {
             minHeight = dp(28f)
             background = GradientDrawable().apply {
                 cornerRadius = dp(10f).toFloat()
-                setColor(Color.parseColor("#2E7D32"))
+                setColor("#2E7D32".toColorInt())
             }
         }
         val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
@@ -55,11 +56,5 @@ class PermissionPanelView(context: Context) : LinearLayout(context) {
 
     fun setOnAllow(action: () -> Unit) {
         allowBtn.setOnClickListener { action() }
-    }
-
-    fun fadeIn(duration: Long = 200L) {
-        anim?.cancel()
-        anim = animate().alpha(1f).setDuration(duration)
-        anim?.start()
     }
 }
