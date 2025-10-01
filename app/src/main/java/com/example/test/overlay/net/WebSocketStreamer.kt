@@ -42,8 +42,13 @@ class WebSocketStreamer(
     }
 
     fun stop(code: Int = 1000, reason: String = "done") {
+        val socket = ws
+        if (started && socket != null) {
+            socket.send("END")
+        }
         started = false
-        ws?.close(code, reason)
+        socket?.close(code, reason)
         ws = null
     }
+
 }
